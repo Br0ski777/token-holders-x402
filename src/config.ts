@@ -33,6 +33,57 @@ Do NOT use for token price data -- use token_get_ohlcv_history instead. Do NOT u
         },
         required: ["address"],
       },
+      outputSchema: {
+          "type": "object",
+          "properties": {
+            "address": {
+              "type": "string",
+              "description": "Token contract address"
+            },
+            "chain": {
+              "type": "string",
+              "description": "Blockchain"
+            },
+            "totalHolders": {
+              "type": "number",
+              "description": "Total holders returned"
+            },
+            "topHolders": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "rank": {
+                    "type": "number"
+                  },
+                  "address": {
+                    "type": "string"
+                  },
+                  "balance": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "concentration": {
+              "type": "object",
+              "properties": {
+                "top5Percentage": {
+                  "type": "number"
+                },
+                "top10Percentage": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "required": [
+            "address",
+            "chain",
+            "topHolders",
+            "concentration"
+          ]
+        },
     },
   ],
 };
