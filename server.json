@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.Br0ski777/token-holders",
   "title": "Token Holders API",
-  "description": "Token holder distribution — top holders, whale count, concentration score. x402.",
+  "description": "Token holder distribution \u2014 top holders, whale count, concentration score. x402.",
   "version": "1.0.0",
   "websiteUrl": "https://github.com/Br0ski777/token-holders-x402",
   "repository": {
@@ -12,7 +12,7 @@
   "remotes": [
     {
       "type": "sse",
-      "url": "https://token-holders-x402-production.up.railway.app/mcp"
+      "url": "https://token-holders.api.klymax402.com/mcp"
     }
   ]
 }
