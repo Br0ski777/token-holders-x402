@@ -35,6 +35,7 @@ function getMoralisKey(): string {
 interface HolderInfo {
   rank: number;
   address: string;
+  usdValue: number | null;
   balance: string;
   percentage: number;
   percentageFormatted: string;
@@ -75,13 +76,14 @@ export function registerRoutes(app: Hono) {
 
       const ownersData = await ownersResp.json() as {
         totalSupply: string;
-        result: Array<{ owner_address: string; balance_formatted: string; percentage_relative_to_total_supply: number; is_contract: boolean }>;
+        result: Array<{ owner_address: string; balance_formatted: string; percentage_relative_to_total_supply: number; is_contract: boolean; usd_value?: string }>;
       };
       const statsData = statsResp.ok ? await statsResp.json() as any : null;
 
       const topHolders: HolderInfo[] = ownersData.result.map((h, i) => ({
         rank: i + 1,
         address: h.owner_address,
+        usdValue: h.usd_value ? parseFloat(parseFloat(h.usd_value).toFixed(2)) : null,
         balance: h.balance_formatted,
         percentage: Math.round(h.percentage_relative_to_total_supply * 100) / 100,
         percentageFormatted: `${h.percentage_relative_to_total_supply.toFixed(2)}%`,
