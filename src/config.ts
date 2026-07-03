@@ -29,7 +29,7 @@ Do NOT use for token price data -- use token_get_ohlcv_history instead. Do NOT u
         type: "object",
         properties: {
           address: { type: "string", description: "Token contract address (0x...)" },
-          chain: { type: "string", description: "Chain: base, ethereum (default: base)" },
+          chain: { type: "string", description: "Chain: base, ethereum (default: ethereum)" },
         },
         required: ["address"],
       },
@@ -108,7 +108,7 @@ Do NOT use for token price data -- use token_get_ohlcv_history instead. Do NOT u
         type: "object",
         properties: {
           address: { type: "string", description: "Token contract address (0x...)" },
-          chain: { type: "string", description: "Chain: base, ethereum (default: base)" },
+          chain: { type: "string", description: "Chain: base, ethereum (default: ethereum)" },
         },
         required: ["address"],
       },

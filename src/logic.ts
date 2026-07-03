@@ -15,15 +15,22 @@ async function tryRequirePayment(price: number): Promise<void> {
   }
 }
 
-const API_URLS: Record<string, string> = {
-  base: "https://api.basescan.org/api",
-  ethereum: "https://api.etherscan.io/api",
+// Migrated to Moralis 2026-07-04: Etherscan's V2 API locks tokenholderlist
+// behind API Pro ($399/mo), on EVERY chain (not just Base -- confirmed via a
+// direct call on Ethereum too: "trying to access an API Pro endpoint").
+// Moralis's Token Owners + Token Holder Stats endpoints cover both chains on
+// the free tier (40K CU/month) with real totalHolders counts and precomputed
+// concentration percentages -- richer than the original Reservoir-era design.
+const CHAIN_IDS: Record<string, string> = {
+  ethereum: "eth",
+  base: "base",
 };
 
-const API_KEYS: Record<string, string> = {
-  base: process.env.BASESCAN_API_KEY || "",
-  ethereum: process.env.ETHERSCAN_API_KEY || "",
-};
+function getMoralisKey(): string {
+  const key = process.env.MORALIS_API_KEY;
+  if (!key) throw new Error("MORALIS_API_KEY not configured");
+  return key;
+}
 
 interface HolderInfo {
   rank: number;
@@ -38,66 +45,52 @@ export function registerRoutes(app: Hono) {
   async function handleHolders(c: any, params: { address?: string; chain?: string }) {
     await tryRequirePayment(0.005);
     const address = params.address;
-    const chain = (params.chain || "base").toLowerCase();
+    const chain = (params.chain || "ethereum").toLowerCase();
 
     if (!address || !address.match(/^0x[a-fA-F0-9]{40}$/)) {
       return c.json({ error: "Missing or invalid token address (0x...)" }, 400);
     }
 
-    const apiUrl = API_URLS[chain];
-    if (!apiUrl) {
-      return c.json({ error: `Unsupported chain: ${chain}. Supported: base, ethereum` }, 400);
+    const moralisChain = CHAIN_IDS[chain];
+    if (!moralisChain) {
+      return c.json({ error: `Unsupported chain: ${chain}. Supported: ethereum, base` }, 400);
     }
 
-    const apiKey = API_KEYS[chain];
-
     try {
-      // Fetch top token holders
-      const url = `${apiUrl}?module=token&action=tokenholderlist&contractaddress=${address}&page=1&offset=50${apiKey ? `&apikey=${apiKey}` : ""}`;
-      const resp = await fetch(url);
+      const key = getMoralisKey();
+      const headers = { "X-API-Key": key, accept: "application/json" };
+      const [ownersResp, statsResp] = await Promise.all([
+        fetch(`https://deep-index.moralis.io/api/v2.2/erc20/${address}/owners?chain=${moralisChain}&order=DESC&limit=10`, { headers }),
+        fetch(`https://deep-index.moralis.io/api/v2.2/erc20/${address}/holders?chain=${moralisChain}`, { headers }),
+      ]);
 
-      if (!resp.ok) {
-        return c.json({ error: "Failed to fetch holder data from explorer" }, 502);
-      }
-
-      const data = await resp.json() as any;
-
-      if (data.status !== "1" || !Array.isArray(data.result)) {
-        // Fallback: try token info endpoint
+      if (!ownersResp.ok) {
         return c.json({
           address,
           chain,
-          error: "Token holder data not available. The explorer API may not support this token or rate limit reached.",
-          suggestion: "Try again later or use a different chain parameter.",
+          error: "Token holder data not available. Moralis may not support this token or rate limit reached.",
+          suggestion: "Verify the contract address, or try again later.",
         }, 404);
       }
 
-      const holders = data.result as Array<{ TokenHolderAddress: string; TokenHolderQuantity: string }>;
+      const ownersData = await ownersResp.json() as {
+        totalSupply: string;
+        result: Array<{ owner_address: string; balance_formatted: string; percentage_relative_to_total_supply: number; is_contract: boolean }>;
+      };
+      const statsData = statsResp.ok ? await statsResp.json() as any : null;
 
-      // Calculate total supply from top holders (approximation)
-      const totalFromHolders = holders.reduce((sum, h) => sum + BigInt(h.TokenHolderQuantity), BigInt(0));
+      const topHolders: HolderInfo[] = ownersData.result.map((h, i) => ({
+        rank: i + 1,
+        address: h.owner_address,
+        balance: h.balance_formatted,
+        percentage: Math.round(h.percentage_relative_to_total_supply * 100) / 100,
+        percentageFormatted: `${h.percentage_relative_to_total_supply.toFixed(2)}%`,
+        isWhale: h.percentage_relative_to_total_supply > 1,
+      }));
 
-      // Build holder analysis
-      const topHolders: HolderInfo[] = holders.slice(0, 10).map((h, i) => {
-        const balance = BigInt(h.TokenHolderQuantity);
-        const pct = totalFromHolders > BigInt(0) ? Number(balance * BigInt(10000) / totalFromHolders) / 100 : 0;
-        return {
-          rank: i + 1,
-          address: h.TokenHolderAddress,
-          balance: h.TokenHolderQuantity,
-          percentage: Math.round(pct * 100) / 100,
-          percentageFormatted: `${pct.toFixed(2)}%`,
-          isWhale: pct > 1,
-        };
-      });
-
-      // Concentration metrics
-      const top10Pct = topHolders.reduce((sum, h) => sum + h.percentage, 0);
       const top5Pct = topHolders.slice(0, 5).reduce((sum, h) => sum + h.percentage, 0);
-      const whaleCount = holders.filter((h) => {
-        const pct = Number(BigInt(h.TokenHolderQuantity) * BigInt(10000) / totalFromHolders) / 100;
-        return pct > 1;
-      }).length;
+      const top10Pct = statsData?.holderSupply?.top10?.supplyPercent ?? topHolders.reduce((sum, h) => sum + h.percentage, 0);
+      const whaleCount = topHolders.filter((h) => h.isWhale).length;
 
       // Decentralization score (0-100, 100 = most decentralized)
       let decentralizationScore: number;
@@ -110,16 +103,20 @@ export function registerRoutes(app: Hono) {
       return c.json({
         address,
         chain,
-        totalHolders: holders.length,
+        totalHolders: statsData?.totalHolders ?? null,
+        totalSupply: ownersData.totalSupply,
         topHolders,
         concentration: {
           top5Percentage: Math.round(top5Pct * 100) / 100,
-          top10Percentage: Math.round(top10Pct * 100) / 100,
+          top10Percentage: top10Pct,
           top5Formatted: `${top5Pct.toFixed(2)}%`,
           top10Formatted: `${top10Pct.toFixed(2)}%`,
         },
         whaleCount,
+        holderDistribution: statsData?.holderDistribution ?? null,
+        holderChange24h: statsData?.holderChange?.["24h"] ?? null,
         decentralizationScore,
+        source: "moralis",
         analyzedAt: new Date().toISOString(),
       });
     } catch (err: any) {
