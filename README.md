@@ -4,7 +4,7 @@
 [![x402](https://img.shields.io/badge/payments-x402-6E56CF)](https://x402.org)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-Token holder analysis — top holders, concentration metrics, whale detection. Pay-per-call via [x402](https://x402.org) (USDC on Base L2) -- no API key, no signup, no rate-limit wall.
+Token holder distribution -- top holders, concentration %, whale count. On-chain due diligence for agents. Pay-per-call via [x402](https://x402.org) (USDC on Base L2) -- no API key, no signup, no rate-limit wall.
 
 Part of the [klymax402](https://klymax402.com) marketplace -- 100 x402 micropayment APIs for AI agents, one wallet, USDC on Base.
 
@@ -35,22 +35,71 @@ Any x402-aware client ([`@x402/fetch`](https://www.npmjs.com/package/@x402/fetch
 
 | Tool | Method | Path | Price | Description |
 |---|---|---|---|---|
-| `token_get_holder_analysis` | GET | `/api/holders` | $0.005 | Get token holder analysis with concentration metrics |
+| `token_get_holder_analysis` | GET | `/api/holders` | $0.012 | Get token holder analysis with concentration metrics |
+| `token_get_holder_analysis` | POST | `/api/holders` | $0.012 | Get token holder analysis with concentration metrics (POST variant) |
 
 ### `token_get_holder_analysis`
 
-Use this when you need to analyze token holder distribution. Returns top 10 holders with percentages, concentration metrics (top 10 hold X%), whale count (holders with >1% supply), and total holder count. Supports Base and Ethereum via Etherscan/Basescan. Do NOT use for token price data — use token_get_ohlcv. Do NOT use for token safety — use token_check_safety. Do NOT use for liquidity depth — use dex_analyze_orderbook_depth.
+Use this when you need to analyze token holder distribution and concentration risk. Returns holder metrics in JSON.
 
 **Parameters**
 
 | Name | Type | Required | Description |
 |---|---|---|---|
 | `address` | string | yes | Token contract address (0x...) |
-| `chain` | string | no | Chain: base, ethereum (default: base) |
+| `chain` | string | no | Chain: base, ethereum (default: ethereum) |
+
+**Returns**
+
+- `topHolders` -- array of top 10 holders with address, balance, percentage of supply
+- `top10Concentration` -- percentage of total supply held by top 10 wallets
+- `whaleCount` -- number of wallets holding >1% of supply
+- `totalHolders` -- total unique holder count
+- `isConcentrated` -- boolean flag if top 10 hold >50% supply (centralization risk)
+
+Example response:
+
+```json
+{"topHolders":[{"address":"0xab...cd","balance":"1250000","percent":12.5}],"top10Concentration":45.2,"whaleCount":7,"totalHolders":15420,"isConcentrated":false}
+```
+
+**When to use**: buying a token to assess centralization and whale dump risk. Essential for on-chain due diligence and token research.
+
+**Not for**: token price data (use `token_get_ohlcv_history`), token safety (use `token_check_safety`), liquidity depth (use `dex_analyze_orderbook_depth`).
+
+### `token_get_holder_analysis`
+
+Use this when you need to analyze token holder distribution and concentration risk. Returns holder metrics in JSON. POST variant of token_get_holder_analysis -- same params passed as JSON body instead of query string.
+
+**Parameters**
+
+| Name | Type | Required | Description |
+|---|---|---|---|
+| `address` | string | yes | Token contract address (0x...) |
+| `chain` | string | no | Chain: base, ethereum (default: ethereum) |
+
+**Returns**
+
+- `topHolders` -- array of top 10 holders with address, balance, percentage of supply
+- `top10Concentration` -- percentage of total supply held by top 10 wallets
+- `whaleCount` -- number of wallets holding >1% of supply
+- `totalHolders` -- total unique holder count
+- `isConcentrated` -- boolean flag if top 10 hold >50% supply (centralization risk)
+
+Example response:
+
+```json
+{"topHolders":[{"address":"0xab...cd","balance":"1250000","percent":12.5}],"top10Concentration":45.2,"whaleCount":7,"totalHolders":15420,"isConcentrated":false}
+```
+
+**When to use**: buying a token to assess centralization and whale dump risk. Essential for on-chain due diligence and token research.
+
+**Not for**: token price data (use `token_get_ohlcv_history`), token safety (use `token_check_safety`), liquidity depth (use `dex_analyze_orderbook_depth`).
 
 ## Example agent prompts
 
-- "Analyze token holder distribution"
+- "Analyze token holder distribution and concentration risk"
+- "Analyze token holder distribution and concentration risk"
 
 ## Payment
 
