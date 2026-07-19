@@ -9,7 +9,7 @@ export const API_CONFIG: ApiConfig = {
     {
       method: "GET",
       path: "/api/holders",
-      price: "$0.005",
+      price: "$0.012",
       description: "Get token holder analysis with concentration metrics",
       toolName: "token_get_holder_analysis",
       toolDescription: `Use this when you need to analyze token holder distribution and concentration risk. Returns holder metrics in JSON.
@@ -88,7 +88,7 @@ Do NOT use for token price data -- use token_get_ohlcv_history instead. Do NOT u
     {
       method: "POST",
       path: "/api/holders",
-      price: "$0.005",
+      price: "$0.012",
       description: "Get token holder analysis with concentration metrics (POST variant)",
       toolName: "token_get_holder_analysis",
       toolDescription: `Use this when you need to analyze token holder distribution and concentration risk. Returns holder metrics in JSON. POST variant of token_get_holder_analysis -- same params passed as JSON body instead of query string.
